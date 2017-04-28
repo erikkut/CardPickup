@@ -9,11 +9,13 @@ import java.util.ArrayList;
  * 
  * @author Marcus Gutierrez and Oscar Veliz
  * @version 2017/15/4
+ *
+ * Edited by Eric Torres
  */
 public class GameMaster {
 
-	private static boolean verbose = false; //Set to false if you do not want much detail printed to console
-	private static int numGames = 25; //use a small number for quick tests, a large one to be comprehensive
+	private static boolean verbose = true; //Set to false if you do not want much detail printed to console
+	private static int numGames = 1; //use a small number for quick tests, a large one to be comprehensive
 	private static int parameterSetting = 1; //see changeParameters()
 	
 	/**
