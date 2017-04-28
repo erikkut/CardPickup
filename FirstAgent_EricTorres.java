@@ -1,5 +1,7 @@
 package CardPickup;
 
+import com.sun.org.apache.xerces.internal.xs.StringList;
+
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -60,8 +62,11 @@ public class FirstAgent_EricTorres extends Player{
             known.add(hand.getHoleCard(i));
         }
 
+        printIntel();
+
         updateKnownAndGraph();
 
+        printIntel();
     }
 
     /**
@@ -98,6 +103,7 @@ public class FirstAgent_EricTorres extends Player{
      * Player logic goes here
      */
     public Action makeAction() {
+        printIntel();
         Random r = new Random();
         int neighbor;
         if (graph[currentNode].getNeighborAmount()==1)
@@ -147,15 +153,55 @@ public class FirstAgent_EricTorres extends Player{
      * Returns anti-intersection of two Card ArrayLists (The cards that don't match)
      */
     public ArrayList<Card> containsKnown(ArrayList<Card> known, ArrayList<Card> node){
-        ArrayList<Card> difference = new ArrayList<>();
+        ArrayList<Card> difference = (ArrayList<Card>) node.clone();
 
         //For every known card
-        for(int i = 0; i < node.size(); i++){
-            if(!known.contains(node.get(i))){
-                difference.add(node.get(i));
+        for(int i = 0; i < known.size(); i++){
+
+            //for every possible card
+            for(int j = 0; j < node.size(); j++){
+                if(known.get(i).shortName() == node.get(j).shortName()){
+                    //remove
+                    difference.remove(j);
+                    continue;
+                }
+                else{
+//                    System.out.println(known.get(i).shortName() +"==" + node.get(j).shortName());
+                }
             }
+            /*
+            if(!known.contains(node.get(i))){
+                System.out.println("contained"+i);
+                difference.add(node.get(i));
+            }*/
         }
 
         return difference;
+    }
+
+    /**
+     * Prints current player known cards and graph
+     */
+    public void printIntel(){
+        //print known
+        System.out.print("Known cards: ");
+        for(int i = 0; i < known.size(); i++){
+            System.out.print(known.get(i).shortName()+", ");
+        }
+        System.out.println("");
+
+        //print graph
+        for(int i = 0; i < graph.length; i++){
+            System.out.print("Node: "+i+", ");
+
+            ArrayList<Card> possible = graph[i].getPossibleCards();
+            for(int j = 0; j < possible.size(); j++){
+                System.out.print(possible.get(j).shortName()+", ");
+            }
+
+            System.out.println("");
+        }
+
+        System.out.println("");
     }
 }

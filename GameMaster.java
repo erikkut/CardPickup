@@ -6,7 +6,7 @@ import java.util.ArrayList;
  * Play a graph variant of Poker.
  * Add your agent to the list of agents in main() AND to the getPlayer() method
  * Note you can change the parameter settings and the number of games by altering numGames and parameterSetting
- * 
+ *
  * @author Marcus Gutierrez and Oscar Veliz
  * @version 2017/15/4
  *
@@ -17,7 +17,7 @@ public class GameMaster {
 	private static boolean verbose = true; //Set to false if you do not want much detail printed to console
 	private static int numGames = 1; //use a small number for quick tests, a large one to be comprehensive
 	private static int parameterSetting = 1; //see changeParameters()
-	
+
 	/**
 	 * You should edit this method to include your player agent
 	 * @param name The name of your player agent
@@ -26,22 +26,23 @@ public class GameMaster {
 	public static Player getPlayer(String name) {
 		if (name.equalsIgnoreCase("TestPlayer"))
 			return new TestPlayer();
+
+		/*
 		else if(name.equalsIgnoreCase("MaxPower"))
 			return new MaxPower();
 		else if(name.equalsIgnoreCase("HankScorpio"))
-			return new HankScorpio();
-		////////////////////////////////////
-		//your player here
-		////////////////////////////////////
-        /*else if(name.equalsIgnoreCase("YOUR AGENT HERE")
-		 * 	return new StudentAgent();
-		 */
+			return new HankScorpio();*/
+			////////////////////////////////////
+			//your player here
+			////////////////////////////////////
+		else if (name.equalsIgnoreCase("NotDumb"))
+			return new FirstAgent_EricTorres();
 		// in case your name was not added
 		return null;
 	}
 	/**
 	 * Runs the tournament
-	 * 
+	 *
 	 * @param args not using any command line arguments
 	 */
 	public static void main(String[] args) {
@@ -50,10 +51,11 @@ public class GameMaster {
 
 		ArrayList<Player> players = new ArrayList<Player>();
 		players.add(new TestPlayer());
-		players.add(new MaxPower());
-		players.add(new HankScorpio());
+
+//		players.add(new MaxPower());
+//		players.add(new HankScorpio());
 		////////////////////////////////////
-		//your player here
+		players.add(new FirstAgent_EricTorres());
 		////////////////////////////////////
 
 		float[] ranks = new float[players.size()];
@@ -85,7 +87,7 @@ public class GameMaster {
 	/**
 	 * Tries to execute a Player class' method by using threads a layer of protection in case
 	 * the Player subclasses crash or time out.
-	 * 
+	 *
 	 * @param pDriver The thread that will ask the player to execute some code
 	 */
 	private static void tryPlayer(PlayerDriver pDriver){
@@ -128,7 +130,8 @@ public class GameMaster {
 		p1.setCurrentNode(p1Profile.getCurrentLocation());
 
 		//Player 2
-		p2.setGraph(g.generateHiddenGraph());
+//		p2.setGraph(g.generateHiddenGraph());
+		p2.setGraph(Parser.parseGraph(gameSeed+".hidden").generateHiddenGraph());
 		p2Profile.setCurrentHand(Parser.parseHand(gameSeed, 2));
 		p2Profile.setCurrentLocation(1);
 		//Update the player 2
@@ -154,47 +157,47 @@ public class GameMaster {
 	 */
 	private static void registerTurn(Node[] graph, PlayerProfile cpProfile, Player currentPlayer, Player opponent){
 		Action a = currentPlayer.getLastAction();
-        if(a == null)//just in case the player couldn't get a move in.
-            a = new Action(ActionType.MOVE,currentPlayer.getCurrentNode());
+		if(a == null)//just in case the player couldn't get a move in.
+			a = new Action(ActionType.MOVE,currentPlayer.getCurrentNode());
 		if(isValidMove(graph, cpProfile.getCurrentLocation(), a.nodeID)){
 			switch(a.move){
-			case MOVE:
-				cpProfile.setCurrentLocation(a.nodeID);
-				currentPlayer.setCurrentNode(a.nodeID);
-				tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, false, null)); //Try to notify opponent of result
-				tryPlayer(new PlayerDriver(PlayerState.RESULT, currentPlayer, a.nodeID, null)); //Try to notify player of result
-				//opponent.opponentAction(a.nodeID, false, null);
-				//currentPlayer.actionResult(a.nodeID,null);
-				if(verbose)System.out.println(currentPlayer.getName() + " moved to node " + a.nodeID);
-				break;
-			case PICKUP:
-				cpProfile.setCurrentLocation(a.nodeID);
-				currentPlayer.setCurrentNode(a.nodeID);
-				//If the node's card has not been picked up yet
-				if(graph[a.nodeID].getPossibleCards().size() > 0){
-					//currentPlayer.addCardToHand(new Card(graph[a.nodeID].getCard().toString()));
-					cpProfile.addCardToHand(new Card(graph[a.nodeID].getCard().toString()));
-					tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, true, new Card(graph[a.nodeID].getCard().toString()))); //Try to notify opponent of result
-					tryPlayer(new PlayerDriver(PlayerState.RESULT, currentPlayer, a.nodeID, new Card(graph[a.nodeID].getCard().toString()))); //Try to notify player of result
-					//opponent.opponentAction(a.nodeID, true, new Card(graph[a.nodeID].getCard().toString()));
-					//currentPlayer.actionResult(a.nodeID, new Card(graph[a.nodeID].getCard().toString()));
-					graph[a.nodeID].clearPossibleCards(); //remove all possible cards
-					if(verbose)System.out.println(currentPlayer.getName() + " picked up a " + graph[a.nodeID].getCard().toString() + " at node " + a.nodeID);
-				}else{ //The node's card has already been picked up
-					//opponent.opponentAction(a.nodeID, false, null);
-					//currentPlayer.actionResult(a.nodeID,null);
+				case MOVE:
+					cpProfile.setCurrentLocation(a.nodeID);
+					currentPlayer.setCurrentNode(a.nodeID);
 					tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, false, null)); //Try to notify opponent of result
 					tryPlayer(new PlayerDriver(PlayerState.RESULT, currentPlayer, a.nodeID, null)); //Try to notify player of result
-					if(verbose)System.out.println(currentPlayer.getName() + " attempted to pick up a card at node " + a.nodeID + ", but nothing was there");
-				}
-				break;
-			default:
-				tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, false, null)); //Try to notify opponent of result
-				tryPlayer(new PlayerDriver(PlayerState.RESULT, currentPlayer, cpProfile.getCurrentLocation(), null)); //Try to notify player of result
-				//opponent.opponentAction(a.nodeID, false, null);
-				//currentPlayer.actionResult(cpProfile.getCurrentLocation(),null);
-				if(verbose)System.out.println(currentPlayer.getName() + " performed an invalid action default case hit");
-				break;
+					//opponent.opponentAction(a.nodeID, false, null);
+					//currentPlayer.actionResult(a.nodeID,null);
+					if(verbose)System.out.println(currentPlayer.getName() + " moved to node " + a.nodeID);
+					break;
+				case PICKUP:
+					cpProfile.setCurrentLocation(a.nodeID);
+					currentPlayer.setCurrentNode(a.nodeID);
+					//If the node's card has not been picked up yet
+					if(graph[a.nodeID].getPossibleCards().size() > 0){
+						//currentPlayer.addCardToHand(new Card(graph[a.nodeID].getCard().toString()));
+						cpProfile.addCardToHand(new Card(graph[a.nodeID].getCard().toString()));
+						tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, true, new Card(graph[a.nodeID].getCard().toString()))); //Try to notify opponent of result
+						tryPlayer(new PlayerDriver(PlayerState.RESULT, currentPlayer, a.nodeID, new Card(graph[a.nodeID].getCard().toString()))); //Try to notify player of result
+						//opponent.opponentAction(a.nodeID, true, new Card(graph[a.nodeID].getCard().toString()));
+						//currentPlayer.actionResult(a.nodeID, new Card(graph[a.nodeID].getCard().toString()));
+						graph[a.nodeID].clearPossibleCards(); //remove all possible cards
+						if(verbose)System.out.println(currentPlayer.getName() + " picked up a " + graph[a.nodeID].getCard().toString() + " at node " + a.nodeID);
+					}else{ //The node's card has already been picked up
+						//opponent.opponentAction(a.nodeID, false, null);
+						//currentPlayer.actionResult(a.nodeID,null);
+						tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, false, null)); //Try to notify opponent of result
+						tryPlayer(new PlayerDriver(PlayerState.RESULT, currentPlayer, a.nodeID, null)); //Try to notify player of result
+						if(verbose)System.out.println(currentPlayer.getName() + " attempted to pick up a card at node " + a.nodeID + ", but nothing was there");
+					}
+					break;
+				default:
+					tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, false, null)); //Try to notify opponent of result
+					tryPlayer(new PlayerDriver(PlayerState.RESULT, currentPlayer, cpProfile.getCurrentLocation(), null)); //Try to notify player of result
+					//opponent.opponentAction(a.nodeID, false, null);
+					//currentPlayer.actionResult(cpProfile.getCurrentLocation(),null);
+					if(verbose)System.out.println(currentPlayer.getName() + " performed an invalid action default case hit");
+					break;
 			}
 		}else{
 			tryPlayer(new PlayerDriver(PlayerState.OPP_RESULT, opponent, a.nodeID, false, null)); //Try to notify opponent of result
@@ -207,7 +210,7 @@ public class GameMaster {
 
 	/**
 	 * Checks if an attempted move is valid.
-	 * 
+	 *
 	 * @param graph The adjacency list of the graph
 	 * @param playerLocation The current player location
 	 * @param playerDestination The attempted destination of the player
@@ -366,7 +369,7 @@ public class GameMaster {
 	}
 	/**
 	 * Generates graphs
-	 * 
+	 *
 	 * @param numGraphs
 	 *            the number of graphs to generate
 	 */
@@ -386,50 +389,50 @@ public class GameMaster {
 	 */
 	private static void changeParameters(int x){
 		switch (x) {
-		case 0://smallish graph
-			Parameters.NUMBER_OF_NODES = 8;
-			Parameters.MAX_NEIGHBORS = 3;
-			Parameters.MIN_NEIGHBORS = 1;
-			Parameters.NUM_POSSIBLE_CARDS = 4;
-			Parameters.NUM_TURNS = 8;
-			break;
-		case 1://slightly larger
-			Parameters.NUMBER_OF_NODES = 12;
-			Parameters.MAX_NEIGHBORS = 3;
-			Parameters.MIN_NEIGHBORS = 2;
-			Parameters.NUM_POSSIBLE_CARDS = 4;
-			Parameters.NUM_TURNS = 12;
-			break;
-		case 2: //less uncertainty
-			Parameters.NUMBER_OF_NODES = 14;
-			Parameters.MAX_NEIGHBORS = 5;
-			Parameters.MIN_NEIGHBORS = 2;
-			Parameters.NUM_POSSIBLE_CARDS = 2;
-			Parameters.NUM_TURNS = 8;
-			break;
-		case 3://no uncertainty
-			Parameters.NUMBER_OF_NODES = 12;
-			Parameters.MAX_NEIGHBORS = 5;
-			Parameters.MIN_NEIGHBORS = 2;
-			Parameters.NUM_POSSIBLE_CARDS = 1;
-			Parameters.NUM_TURNS = 8;
-			break;
-		case 4://large and complex
-			Parameters.NUMBER_OF_NODES = 20;
-			Parameters.MAX_NEIGHBORS = 5;
-			Parameters.MIN_NEIGHBORS = 3;
-			Parameters.NUM_POSSIBLE_CARDS = 4;
-			Parameters.NUM_TURNS = 15;
-			break;
-		case 5://even more complexity
-			Parameters.NUMBER_OF_NODES = 20;
-			Parameters.MAX_NEIGHBORS = 5;
-			Parameters.MIN_NEIGHBORS = 3;
-			Parameters.NUM_POSSIBLE_CARDS = 5;
-			Parameters.NUM_TURNS = 15;
-			break;
-		default://whatever the default parameters are
-			break;
+			case 0://smallish graph
+				Parameters.NUMBER_OF_NODES = 8;
+				Parameters.MAX_NEIGHBORS = 3;
+				Parameters.MIN_NEIGHBORS = 1;
+				Parameters.NUM_POSSIBLE_CARDS = 4;
+				Parameters.NUM_TURNS = 8;
+				break;
+			case 1://slightly larger
+				Parameters.NUMBER_OF_NODES = 12;
+				Parameters.MAX_NEIGHBORS = 3;
+				Parameters.MIN_NEIGHBORS = 2;
+				Parameters.NUM_POSSIBLE_CARDS = 4;
+				Parameters.NUM_TURNS = 12;
+				break;
+			case 2: //less uncertainty
+				Parameters.NUMBER_OF_NODES = 14;
+				Parameters.MAX_NEIGHBORS = 5;
+				Parameters.MIN_NEIGHBORS = 2;
+				Parameters.NUM_POSSIBLE_CARDS = 2;
+				Parameters.NUM_TURNS = 8;
+				break;
+			case 3://no uncertainty
+				Parameters.NUMBER_OF_NODES = 12;
+				Parameters.MAX_NEIGHBORS = 5;
+				Parameters.MIN_NEIGHBORS = 2;
+				Parameters.NUM_POSSIBLE_CARDS = 1;
+				Parameters.NUM_TURNS = 8;
+				break;
+			case 4://large and complex
+				Parameters.NUMBER_OF_NODES = 20;
+				Parameters.MAX_NEIGHBORS = 5;
+				Parameters.MIN_NEIGHBORS = 3;
+				Parameters.NUM_POSSIBLE_CARDS = 4;
+				Parameters.NUM_TURNS = 15;
+				break;
+			case 5://even more complexity
+				Parameters.NUMBER_OF_NODES = 20;
+				Parameters.MAX_NEIGHBORS = 5;
+				Parameters.MIN_NEIGHBORS = 3;
+				Parameters.NUM_POSSIBLE_CARDS = 5;
+				Parameters.NUM_TURNS = 15;
+				break;
+			default://whatever the default parameters are
+				break;
 		}
 	}
 }
