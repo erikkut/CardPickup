@@ -2,8 +2,7 @@ package CardPickup;
 
 import com.sun.org.apache.xerces.internal.xs.StringList;
 
-import java.util.ArrayList;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Some important variables inherited from the Player Class:
@@ -41,7 +40,9 @@ public class FirstAgent_EricTorres extends Player{
     ArrayList<Card> known;
 
     //Keep the list of possible cards left
-    ArrayList<Card> unknown;
+    float[] estValues;
+
+    HandEvaluator evaluator = new HandEvaluator();
 
     /**Do not alter this constructor as nothing has been initialized yet. Please use initialize() instead*/
     public FirstAgent_EricTorres() {
@@ -56,17 +57,27 @@ public class FirstAgent_EricTorres extends Player{
          * For this the agent must traverse the graph entirely - maybe multiple times.
          */
 
+        //Initialize node values
+        estValues = new float[graph.length];
+
         //Set known
         known = new ArrayList<>();
         for(int i = 0; i < hand.getNumHole(); i++){
             known.add(hand.getHoleCard(i));
         }
 
-        printIntel();
+        /* //For testing purposes
+        ArrayList<Card> save = graph[0].getPossibleCards();
+        save.remove(0); save.remove(2);
+        graph[0].clearPossibleCards();
+        graph[0].setCard(save.get(0));
+        graph[0].setCard(save.get(1));*/
 
-        updateKnownAndGraph();
+//        printIntel();
 
-        printIntel();
+        updateKnownAndGraphAndValues();
+
+//        printIntel();
     }
 
     /**
@@ -84,6 +95,13 @@ public class FirstAgent_EricTorres extends Player{
             oppLastCard = c;
         else
             oppLastCard = null;
+
+        //Add the picked up card to known and update graph and est values
+        if(c != null) {
+            known.add(c);
+            graph[opponentNode].clearPossibleCards();
+            updateKnownAndGraphAndValues();
+        }
     }
 
     /**
@@ -95,8 +113,15 @@ public class FirstAgent_EricTorres extends Player{
      */
     protected void actionResult(int currentNode, Card c){
         this.currentNode = currentNode;
-        if(c!=null)
+        if(c != null)
             addCardToHand(c);
+
+        //Add the picked up card to known and update graph and est values
+        if(c != null) {
+            known.add(c);
+            graph[currentNode].clearPossibleCards();
+            updateKnownAndGraphAndValues();
+        }
     }
 
     /**
@@ -104,29 +129,94 @@ public class FirstAgent_EricTorres extends Player{
      */
     public Action makeAction() {
         printIntel();
-        Random r = new Random();
+        /*Random r = new Random();
         int neighbor;
         if (graph[currentNode].getNeighborAmount()==1)
             neighbor = graph[currentNode].getNeighbor(0).getNodeID();
         else
             neighbor = graph[currentNode].getNeighbor(r.nextInt(graph[currentNode].getNeighborAmount())).getNodeID();
-        return new Action(ActionType.PICKUP, neighbor);
+        return new Action(ActionType.PICKUP, neighbor);*/
+
+        //If running out of turns just pick up
+        if(turnsRemaining+200 <= hand.getNumUp()){
+            return new Action(ActionType.PICKUP, randomNodeId());
+        }
+
+        //Get top 6 nodes
+
+        int bestIndex = -1;
+        int betterIndex = -1;
+        int okayIndex = -1;
+        int mediumIndex = -1;
+        int worseIndex = -1;
+        int worstIndex = -1;
+        float compare = -100.0f;
+        for(int i = 0; i < graph.length; i++){
+            if(estValues[i] > compare){
+                compare = estValues[i];
+                worstIndex = worseIndex;
+                worseIndex = mediumIndex;
+                mediumIndex = okayIndex;
+                okayIndex = betterIndex;
+                betterIndex = bestIndex;
+                bestIndex = i;
+            }
+        }
+
+        //If current node is within top 2 highest estimates values, pick it up. Otherwise, move towards best.
+        if(currentNode == bestIndex || betterIndex == currentNode || okayIndex == currentNode || mediumIndex == currentNode || worseIndex == currentNode || worstIndex == currentNode){
+            return new Action(ActionType.PICKUP, graph[currentNode].getNodeID());
+        }
+
+        //move to a random node
+        return new Action(ActionType.MOVE, randomNodeId());
+//        return new Action(ActionType.MOVE, findPathToNode(bestIndex));
     }
 
     /**
      * Update the known card list, and the possible cards of each node
      */
-    public void updateKnownAndGraph(){
+    public void updateKnownAndGraphAndValues(){
         boolean reRun = false;
 
         //traverse entire graph, remove impossible cards from each node
         for(int nodeIndex = 0; nodeIndex < graph.length; nodeIndex++) {
+            ArrayList<Card> cardsInNode = graph[nodeIndex].getPossibleCards();
 
-            if(graph[nodeIndex].getPossibleCards().size() == 1) {
+            //Update the estimated value of picking up this node
+            if(cardsInNode.size() == 0){
+                //no value since can't pickup
+                estValues[nodeIndex] = 0.0f;
+            }
+            else{
+                float prob = 1.0f / cardsInNode.size();
+                float value = 0.0f;
+                Hand ghostHand = new Hand();
+
+                for(int i = 0; i < cardsInNode.size(); i++){
+
+                    //Add hole cards on every estimation
+                    for(int j = 0; j < hand.getNumHole(); j++){
+                        ghostHand.addHoleCard(hand.getHoleCard(j));
+                    }
+
+                    ghostHand.addUpCard(cardsInNode.get(i));
+                    value += prob * evaluator.rankHand(ghostHand);
+
+                    //Clear the hand per possible card
+                    ghostHand.clearHand();
+                }
+
+                //Add probable value
+                estValues[nodeIndex] = value;
+            }
+
+            if(cardsInNode.size() == 1) {
                 //node is known, skip this node
                 continue;
             }
-            ArrayList<Card> cardsInNode = graph[nodeIndex].getPossibleCards();
+
+            //Clear cards for update
             graph[nodeIndex].clearPossibleCards();
 
             //Get list containing cards in node that aren't known
@@ -146,7 +236,7 @@ public class FirstAgent_EricTorres extends Player{
         }
 
         if(reRun)
-            updateKnownAndGraph();
+            updateKnownAndGraphAndValues();
     }
 
     /**
@@ -160,20 +250,12 @@ public class FirstAgent_EricTorres extends Player{
 
             //for every possible card
             for(int j = 0; j < node.size(); j++){
-                if(known.get(i).shortName() == node.get(j).shortName()){
+                if(known.get(i).shortName().equalsIgnoreCase(node.get(j).shortName())){
                     //remove
                     difference.remove(j);
                     continue;
                 }
-                else{
-//                    System.out.println(known.get(i).shortName() +"==" + node.get(j).shortName());
-                }
             }
-            /*
-            if(!known.contains(node.get(i))){
-                System.out.println("contained"+i);
-                difference.add(node.get(i));
-            }*/
         }
 
         return difference;
@@ -192,7 +274,7 @@ public class FirstAgent_EricTorres extends Player{
 
         //print graph
         for(int i = 0; i < graph.length; i++){
-            System.out.print("Node: "+i+", ");
+            System.out.print("Node: "+i+"  Est. Val: "+estValues[i]+", ");
 
             ArrayList<Card> possible = graph[i].getPossibleCards();
             for(int j = 0; j < possible.size(); j++){
@@ -203,5 +285,82 @@ public class FirstAgent_EricTorres extends Player{
         }
 
         System.out.println("");
+    }
+
+    public int randomNodeId(){
+        Random r = new Random();
+        int rInd = r.nextInt(graph.length);
+        while(!graph[currentNode].getNeighborList().contains(graph[rInd]) && estValues[rInd] > 0.0){
+            rInd = r.nextInt(graph.length);
+        }
+
+        return graph[rInd].getNodeID();
+    }
+
+    /**
+     * TODO: Fix bugs to implement
+     * @param index: index of node to go to
+     * @return nodeID of node to move to in order to get to wanted node.
+     */
+    public int findPathToNode(int index){
+        ArrayList<Node> neighbors = graph[currentNode].getNeighborList();
+
+        /*
+        //Just move to node if its within neighbors
+        if(neighbors.contains(graph[index])){
+            return graph[index].getNodeID();
+        }
+        else {
+            ArrayList<Node> visited = new ArrayList<>();
+            for(int i = 0; i < graph[currentNode].getNeighborAmount(); i++){
+
+            }
+
+        }*/
+
+
+        ArrayList<Node> visited = new ArrayList<>();
+        Map<Node, Node> prev = new HashMap<>();
+
+        Node curr = graph[currentNode];
+        LinkedList<Node> q = new LinkedList<>();
+        q.add(curr);
+        visited.add(curr);
+
+        while(!q.isEmpty()){
+            curr = q.remove();
+
+            //Found node, return path
+            if(curr.getNodeID() == graph[index].getNodeID()){
+                break;
+            }
+            else{
+                for(Node node : curr.getNeighborList()){
+                    boolean addVis = true;
+                    for(Node vis : visited){
+                        if(vis.getNodeID() == node.getNodeID()){
+                            addVis = false;
+                        }
+                    }
+                    if(addVis) {
+                        q.add(node);
+                        visited.add(node);
+                        prev.put(node, curr);
+                    }
+                    /*if(!visited.contains(node)){
+                        q.add(node);
+                        visited.add(node);
+                        prev.put(node, curr);
+                    }*/
+                }
+            }
+        }
+
+        ArrayList<Node> path = new ArrayList<>();
+        for(Node node = graph[index]; node != null; node = prev.get(node)){
+            path.add(node);
+        }
+        return path.get(path.size()-1).getNodeID();
+
     }
 }
