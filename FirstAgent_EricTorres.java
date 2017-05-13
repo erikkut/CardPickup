@@ -47,7 +47,9 @@ public class FirstAgent_EricTorres extends Player {
 
     HandEvaluator evaluator = new HandEvaluator();
 
-    /**Do not alter this constructor as nothing has been initialized yet. Please use initialize() instead*/
+    /**
+     * Do not alter this constructor as nothing has been initialized yet. Please use initialize() instead
+     */
     public FirstAgent_EricTorres() {
         super();
         playerName = newName;
@@ -72,19 +74,9 @@ public class FirstAgent_EricTorres extends Player {
             known.add(hand.getHoleCard(i));
         }
 
-        /* //For testing purposes
-        ArrayList<Card> save = graph[0].getPossibleCards();
-        save.remove(0); save.remove(2);
-        graph[0].clearPossibleCards();
-        graph[0].setCard(save.get(0));
-        graph[0].setCard(save.get(1));*/
+        updateKnownAndGraphAndValues();
 
 //        printIntel();
-
-        updateKnownAndGraphAndValues();
-        if(isInTop(graph[11], 1))
-            System.out.println("YES THIS IS TOP:");
-        printIntel();
     }
 
     /**
@@ -92,9 +84,9 @@ public class FirstAgent_EricTorres extends Player {
      * GameMaster will call this to update your player on the opponent's actions. This method is called
      * after the opponent has made a move.
      *
-     * @param opponentNode Opponent's current location
+     * @param opponentNode     Opponent's current location
      * @param opponentPickedUp Notifies if the opponent picked up a card last turn
-     * @param c The card that the opponent picked up, if any (null if the opponent did not pick up a card)
+     * @param c                The card that the opponent picked up, if any (null if the opponent did not pick up a card)
      */
     protected void opponentAction(int opponentNode, boolean opponentPickedUp, Card c) {
         oppNode = opponentNode;
@@ -116,7 +108,7 @@ public class FirstAgent_EricTorres extends Player {
      * GameMaster will call this to update you on your actions.
      *
      * @param currentNode Opponent's current location
-     * @param c The card that you picked up, if any (null if you did not pick up a card)
+     * @param c           The card that you picked up, if any (null if you did not pick up a card)
      */
     protected void actionResult(int currentNode, Card c) {
         this.currentNode = currentNode;
@@ -136,23 +128,25 @@ public class FirstAgent_EricTorres extends Player {
      */
     public Action makeAction() {
 
-
 //        printIntel();
 
         //If running out of turns just pick up
-        if (turnsRemaining <= 5 - hand.getNumHole() + hand.getNumUp()) {
+        if (5 - hand.getNumHole() + hand.getNumUp() < turnsRemaining + 1) {
+            //Card already picked, move instead
+            if(estValues[currentNode] == 0.0)
+                return new Action(ActionType.MOVE, randomNodeId());
+            else
+                return new Action(ActionType.PICKUP, graph[currentNode].getNodeID());
+        }
+
+        //If current node is within top estimate values, pick it up. Otherwise, move towards best.
+        if (isInTop(graph[currentNode], 4)) {
             return new Action(ActionType.PICKUP, graph[currentNode].getNodeID());
         }
 
-        //If current node is within top 2 highest estimates values, pick it up. Otherwise, move towards best.
-        if (isInTop(graph[currentNode], 2)) {
-            return new Action(ActionType.PICKUP, graph[currentNode].getNodeID());
-        }
-
-        //move to best node
-//        return new Action(ActionType.MOVE, randomNodeId());
+        //move to random node
         int indexOfBestNode = sorted.get(0).node.getNodeID();
-        return new Action(ActionType.MOVE, indexOfBestNode);
+        return new Action(ActionType.MOVE, randomNodeId());
     }
 
     /**
@@ -221,7 +215,7 @@ public class FirstAgent_EricTorres extends Player {
 
         //Sort the finished estimate values
         sorted.clear();
-        for(int i = 0; i < estValues.length; i++){
+        for (int i = 0; i < estValues.length; i++) {
             sorted.add(new HeuristicNode(graph[i], estValues[i]));
         }
         Collections.sort(sorted, new HeuristicNode(null, 0));
@@ -238,6 +232,8 @@ public class FirstAgent_EricTorres extends Player {
 
             //for every possible card
             for (int j = 0; j < node.size(); j++) {
+                if(j >= difference.size())
+                    break;
                 if (known.get(i).shortName().equalsIgnoreCase(node.get(j).shortName())) {
                     //remove
                     difference.remove(j);
@@ -275,8 +271,8 @@ public class FirstAgent_EricTorres extends Player {
         System.out.print("Sorted List: ");
 
         //print sorted
-        for (HeuristicNode i: sorted) {
-            System.out.print(i.node.getNodeID()+", ");
+        for (HeuristicNode i : sorted) {
+            System.out.print(i.node.getNodeID() + ", ");
         }
         System.out.println("\n");
     }
@@ -284,29 +280,32 @@ public class FirstAgent_EricTorres extends Player {
     /**
      * Returns if a node is within top estimated values (number given as parameter)
      */
-    public boolean isInTop(Node any, int top){
-        for(HeuristicNode i: sorted){
-            if(top < 0)
+    public boolean isInTop(Node any, int top) {
+        for (HeuristicNode i : sorted) {
+            if (top < 0)
                 break;
-            if(i.node.getNodeID() == any.getNodeID())
+            if (i.node.getNodeID() == any.getNodeID())
                 return true;
             top--;
         }
         return false;
     }
 
+    /**
+     * Returns a random neighbor node id
+     */
     public int randomNodeId() {
         Random r = new Random();
-        int rInd = r.nextInt(graph.length);
-        while (estValues[rInd] == 0.0 && currentNode == rInd) {
-            rInd = r.nextInt(graph.length);
-        }
 
-        return graph[rInd].getNodeID();
+        ArrayList<Node> neighbors = graph[currentNode].getNeighborList();
+        int rInd = r.nextInt(neighbors.size());
+
+        return neighbors.get(rInd).getNodeID();
     }
 
     /**
      * TODO: Fix bugs to implement
+     *
      * @param findMe: index of node to go to
      * @return nodeID of node to move to in order to get to wanted node.
      */
@@ -323,8 +322,8 @@ public class FirstAgent_EricTorres extends Player {
         //while fringe isn't empty
         while (!fringe.isEmpty()) {
             current = fringe.dequeue();
-            System.out.println("Current: "+current.node.getNodeID());
-            System.out.println("Current: "+System.currentTimeMillis());
+            System.out.println("Current: " + current.node.getNodeID());
+            System.out.println("Current: " + System.currentTimeMillis());
 
             //changed to 'continue if solution has higher cost than other evaluated solutions'
             //instead of just 'if goal node found, return it'
@@ -339,10 +338,10 @@ public class FirstAgent_EricTorres extends Player {
             ArrayList<Node> ghostChildren = graph[currentNode].getNeighborList();
 
             //check current node's children and add to queue
-            for (Node temp: ghostChildren) {
+            for (Node temp : ghostChildren) {
                 HeuristicNode temp2 = new HeuristicNode(temp, 1);
 
-                if(!visited.hasNode(temp2)){
+                if (!visited.hasNode(temp2)) {
 
                     visited.enqueue(temp2);
 
@@ -363,7 +362,7 @@ public class FirstAgent_EricTorres extends Player {
         return solution;
     }
 
-    public class HeuristicNode implements Comparator<HeuristicNode>{
+    public class HeuristicNode implements Comparator<HeuristicNode> {
         //data
         Node node;
         float val; //cost of node
@@ -383,7 +382,7 @@ public class FirstAgent_EricTorres extends Player {
         }
 
         @Override
-        public int compare(HeuristicNode x1, HeuristicNode x2){
+        public int compare(HeuristicNode x1, HeuristicNode x2) {
             return (int) x2.val - (int) x1.val;
         }
     }
@@ -391,18 +390,18 @@ public class FirstAgent_EricTorres extends Player {
     public class PriorityQueue {
         private HeuristicNode head; //head will always be smallest node
 
-        public PriorityQueue(){
+        public PriorityQueue() {
             head = null;
         }
 
-        public double peekEvaluation(){
-            if(isEmpty())
+        public double peekEvaluation() {
+            if (isEmpty())
                 return 0;
-            return (head.val+head.f);
+            return (head.val + head.f);
         }
 
-        public void enqueue(HeuristicNode ghost){
-            if(isEmpty()){
+        public void enqueue(HeuristicNode ghost) {
+            if (isEmpty()) {
                 head = ghost;
                 return;
             }
@@ -411,18 +410,18 @@ public class FirstAgent_EricTorres extends Player {
             HeuristicNode previous = null;
 
             //if its smaller than the head
-            if((ghost.f+ghost.val) < (temp.val+temp.f)){
+            if ((ghost.f + ghost.val) < (temp.val + temp.f)) {
                 ghost.next = head;
                 head = ghost;
                 return;
             }
 
             //otherwise iterate until a spot for the Node is found
-            while(temp.next != null){
+            while (temp.next != null) {
                 previous = temp;
                 temp = temp.next;
 
-                if((ghost.val+ghost.f) < (temp.val+temp.f)){
+                if ((ghost.val + ghost.f) < (temp.val + temp.f)) {
                     previous.next = ghost;
                     ghost.next = temp;
                     return;
@@ -432,12 +431,12 @@ public class FirstAgent_EricTorres extends Player {
             temp.next = ghost;
         }
 
-        public HeuristicNode dequeue(){
-            if(isEmpty())
+        public HeuristicNode dequeue() {
+            if (isEmpty())
                 return null;
 
             HeuristicNode temp = head;
-            if(head.next == null){
+            if (head.next == null) {
                 head = null;
                 return temp;
             }
@@ -446,38 +445,38 @@ public class FirstAgent_EricTorres extends Player {
             return temp;
         }
 
-        public boolean isEmpty(){
+        public boolean isEmpty() {
             return head == null;
         }
 
-        public void printQueue(){
+        public void printQueue() {
             HeuristicNode temp = head;
-            while(temp != null){
-                System.out.println(""+(temp.val+temp.f));
+            while (temp != null) {
+                System.out.println("" + (temp.val + temp.f));
                 temp = temp.next;
             }
         }
 
-        public boolean hasNode(HeuristicNode ghost){
-            if(head == null)
+        public boolean hasNode(HeuristicNode ghost) {
+            if (head == null)
                 return false;
 
             HeuristicNode temp = head;
-            while(temp != null){
-                if(temp.node.getNodeID() == ghost.node.getNodeID())
+            while (temp != null) {
+                if (temp.node.getNodeID() == ghost.node.getNodeID())
                     return true;
                 temp = temp.next;
             }
             return false;
         }
 
-        public int getSize(){
-            if(isEmpty())
+        public int getSize() {
+            if (isEmpty())
                 return 0;
 
             HeuristicNode temp = head;
             int count = 0;
-            while(temp != null){
+            while (temp != null) {
                 count++;
                 temp = temp.next;
             }
