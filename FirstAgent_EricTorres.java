@@ -140,7 +140,8 @@ public class FirstAgent_EricTorres extends Player {
         }
 
         //If current node is within top estimate values, pick it up. Otherwise, move towards best.
-        if (isInTop(graph[currentNode], 4)) {
+        int isInTopVal = 6;
+        if (isInTop(graph[currentNode], isInTopVal)) {
             return new Action(ActionType.PICKUP, graph[currentNode].getNodeID());
         }
 
